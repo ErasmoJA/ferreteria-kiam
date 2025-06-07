@@ -1,0 +1,83 @@
+{
+  "name": "ferreteria-kiam",
+  "version": "1.0.0",
+  "description": "E-commerce completo de ferretería desarrollado con React, Node.js y MySQL",
+  "main": "index.js",
+  "scripts": {
+    "install-all": "cd ferreteria-backend && npm install && cd ../ferreteria-web && npm install",
+    "install-backend": "cd ferreteria-backend && npm install",
+    "install-frontend": "cd ferreteria-web && npm install",
+    "start-backend": "cd ferreteria-backend && npm start",
+    "start-frontend": "cd ferreteria-web && npm start",
+    "dev-backend": "cd ferreteria-backend && npm run dev",
+    "build-frontend": "cd ferreteria-web && npm run build",
+    "start": "echo 'Usa npm run start-backend y npm run start-frontend en terminales separadas'",
+    "setup": "npm run install-all && echo 'Configuración completa! Ahora configura la base de datos con database/schema.sql'",
+    "dev": "concurrently \"npm run start-backend\" \"npm run start-frontend\"",
+    "test": "echo 'Tests no configurados aún'",
+    "clean": "rm -rf ferreteria-backend/node_modules ferreteria-web/node_modules",
+    "reset": "npm run clean && npm run install-all"
+  },
+  "keywords": [
+    "react",
+    "nodejs",
+    "mysql",
+    "ecommerce",
+    "ferreteria",
+    "tailwindcss",
+    "express",
+    "javascript",
+    "fullstack",
+    "e-commerce",
+    "hardware-store",
+    "construccion",
+    "herramientas"
+  ],
+  "author": {
+    "name": "Tu Nombre",
+    "email": "tu-email@gmail.com",
+    "url": "https://github.com/TU_USUARIO"
+  },
+  "contributors": [
+    {
+      "name": "Ferretería Kiam",
+      "email": "kiamferreteria@gmail.com",
+      "url": "https://ferreteriaKiam.com"
+    }
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TU_USUARIO/ferreteria-kiam.git"
+  },
+  "bugs": {
+    "url": "https://github.com/TU_USUARIO/ferreteria-kiam/issues",
+    "email": "kiamferreteria@gmail.com"
+  },
+  "homepage": "https://github.com/TU_USUARIO/ferreteria-kiam#readme",
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  },
+  "workspaces": [
+    "ferreteria-backend",
+    "ferreteria-web"
+  ],
+  "private": false,
+  "directories": {
+    "doc": "docs",
+    "example": "database"
+  },
+  "config": {
+    "frontend_port": "3000",
+    "backend_port": "5000",
+    "database_name": "ferreteria_db"
+  },
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/sponsors/TU_USUARIO"
+  }
+}

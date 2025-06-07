@@ -1,0 +1,163 @@
+# =============================================
+# FERRETERÍA KIAM - .GITIGNORE
+# =============================================
+
+# Dependencias de Node.js
+ferreteria-web/node_modules/
+ferreteria-backend/node_modules/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Variables de entorno (IMPORTANTE: nunca subir credenciales)
+ferreteria-backend/.env
+ferreteria-web/.env
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Builds de producción
+ferreteria-web/build/
+ferreteria-backend/dist/
+build/
+dist/
+
+# Logs de aplicación
+*.log
+logs/
+ferreteria-backend/logs/
+ferreteria-web/logs/
+
+# Archivos temporales de React
+ferreteria-web/.eslintcache
+.eslintcache
+
+# Archivos de base de datos locales
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos de respaldo de base de datos
+*.sql.backup
+*.dump
+
+# Cache de dependencias
+.npm
+.yarn-integrity
+.cache/
+
+# Archivos del sistema operativo
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Archivos de IDEs y editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+
+# Archivos de configuración local del IDE
+.vscode/settings.json
+.vscode/launch.json
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory usado por herramientas como istanbul
+coverage/
+.nyc_output
+
+# Archivos de configuración de Webpack
+webpack.config.local.js
+
+# Archivos de certificados SSL (desarrollo local)
+*.pem
+*.key
+*.cert
+
+# Archivos de configuración de Docker (si se usan en el futuro)
+.dockerignore
+docker-compose.override.yml
+
+# Archivos de configuración de deployment
+.env.production
+.env.staging
+
+# Uploads de archivos de usuarios (si se implementa en el futuro)
+ferreteria-backend/uploads/
+uploads/
+
+# Archivos de sesiones (si se usan archivos para sesiones)
+sessions/
+
+# Archivos temporales de herramientas de desarrollo
+.tmp/
+temp/
+
+# Archivos específicos de Windows
+$RECYCLE.BIN/
+Desktop.ini
+
+# Archivos específicos de macOS
+.AppleDouble
+.LSOverride
+Icon
+
+# Archivos específicos de Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# =============================================
+# EXCEPCIONES (archivos que SÍ queremos subir)
+# =============================================
+
+# Mantener estas carpetas importantes pero vacías
+!ferreteria-backend/logs/.gitkeep
+!ferreteria-backend/uploads/.gitkeep
+
+# Mantener archivos de configuración de ejemplo
+!ferreteria-backend/.env.example
+!ferreteria-web/.env.example
+
+# Mantener documentación
+!docs/
+!*.md
+!README.md
+!LICENSE
+
+# Mantener esquema de base de datos
+!database/
+!database/*.sql
+
+# =============================================
+# NOTAS IMPORTANTES
+# =============================================
+
+# Este .gitignore está configurado para:
+# 1. Proteger credenciales y datos sensibles
+# 2. Evitar subir dependencias (se instalan con npm install)
+# 3. Mantener el repositorio limpio y profesional
+# 4. Permitir que cualquiera clone y configure fácilmente
+
+# NUNCA agregues estos archivos al repositorio:
+# - Archivos .env con credenciales reales
+# - node_modules (son muy pesados)
+# - Builds (se generan automáticamente)
+# - Logs con información sensible
