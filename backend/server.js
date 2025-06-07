@@ -25,10 +25,12 @@ app.use((req, res, next) => {
 // Importar rutas (una por una para evitar errores)
 const productRoutes = require('./routes/products');
 const categoryRoutes = require('./routes/categories');
+const authRoutes = require('./routes/auth');
 
 // Usar rutas
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/auth', authRoutes);
 
 // Ruta de prueba básica
 app.get('/api/test', (req, res) => {

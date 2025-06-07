@@ -98,10 +98,17 @@ router.post('/register', async (req, res) => {
 
     // Crear usuario
     const [result] = await pool.execute(`
-      INSERT INTO usuarios (
-        nombre, apellidos, email, password_hash, telefono, fecha_nacimiento
-      ) VALUES (?, ?, ?, ?, ?, ?)
-    `, [nombre, apellidos, email.toLowerCase(), hashedPassword, telefono, fecha_nacimiento]);
+    INSERT INTO usuarios (
+    nombre, apellidos, email, password_hash, telefono, fecha_nacimiento
+    ) VALUES (?, ?, ?, ?, ?, ?)
+    `, [
+  nombre, 
+  apellidos, 
+  email.toLowerCase(), 
+  hashedPassword, 
+  telefono || null,           // Convertir undefined a null
+  fecha_nacimiento || null    // Convertir undefined a null
+    ]);
 
     // Generar JWT
     const token = jwt.sign(

@@ -1,8 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, ShoppingCart, Menu, X, Star, Filter, Loader } from 'lucide-react';
+import { Search, ShoppingCart, Menu, X, Star, Filter, Loader, User, LogOut } from 'lucide-react';
 
 // Importación del servicio API
 import { productService, categoryService } from './services/api';
+// Importar el componente de autenticación
+import AuthModal from './components/AuthModal';
 
 const FerreteriaApp = () => {
   const [currentPage, setCurrentPage] = useState('home');
@@ -19,6 +21,43 @@ const FerreteriaApp = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Estados de autenticación
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  // Verificar si hay usuario logueado al cargar la app
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    const userData = localStorage.getItem('userData');
+    
+    if (token && userData) {
+      try {
+        setUser(JSON.parse(userData));
+      } catch (error) {
+        // Si hay error parseando, limpiar localStorage
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userData');
+      }
+    }
+  }, []);
+
+  // Función para manejar login exitoso
+  const handleLogin = (userData) => {
+    setUser(userData);
+    setIsAuthModalOpen(false);
+  };
+
+  // Función para logout
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
+    setUser(null);
+    setIsUserMenuOpen(false);
+    // Opcional: limpiar carrito
+    setCart([]);
+  };
 
   // Mapeo de categorías con íconos
   const getCategoryIcon = (categoryName) => {
@@ -455,10 +494,11 @@ const FerreteriaApp = () => {
               </button>
             </nav>
             
-            {/* Cart */}
+            {/* Cart and User */}
             <div className="flex items-center space-x-4">
+              {/* Carrito */}
               <div className="relative">
-                <ShoppingCart className="h-6 w-6 text-slate-600 hover:text-orange-700 transition-colors" />
+                <ShoppingCart className="h-6 w-6 text-slate-600 hover:text-orange-700 transition-colors cursor-pointer" />
                 {getCartItemCount() > 0 && (
                   <span className="absolute -top-2 -right-2 bg-orange-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                     {getCartItemCount()}
@@ -466,6 +506,63 @@ const FerreteriaApp = () => {
                 )}
               </div>
               <span className="font-medium text-slate-800">${getCartTotal()}</span>
+              
+              {/* Usuario o botones de auth */}
+              {user ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className="flex items-center space-x-2 text-slate-700 hover:text-orange-700 transition-colors"
+                  >
+                    <User className="h-6 w-6" />
+                    <span className="hidden md:block">Hola, {user.nombre}</span>
+                  </button>
+                  
+                  {/* Menú desplegable de usuario */}
+                  {isUserMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-orange-100 z-50">
+                      <div className="py-2">
+                        <div className="px-4 py-2 text-sm text-slate-600 border-b border-orange-100">
+                          {user.email}
+                        </div>
+                        <button 
+                          className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-orange-50 transition-colors"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            // Aquí podrías agregar navegación a perfil
+                          }}
+                        >
+                          Mi Perfil
+                        </button>
+                        <button 
+                          className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-orange-50 transition-colors"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            // Aquí podrías agregar navegación a pedidos
+                          }}
+                        >
+                          Mis Pedidos
+                        </button>
+                        <hr className="border-orange-100" />
+                        <button 
+                          onClick={handleLogout}
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center"
+                        >
+                          <LogOut className="h-4 w-4 mr-2" />
+                          Cerrar Sesión
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors font-medium"
+                >
+                  Iniciar Sesión
+                </button>
+              )}
               
               {/* Connection Status */}
               <div className="hidden lg:flex items-center">
@@ -504,6 +601,17 @@ const FerreteriaApp = () => {
               >
                 Productos
               </button>
+              {!user && (
+                <button 
+                  onClick={() => {
+                    setIsAuthModalOpen(true);
+                    setIsMenuOpen(false);
+                  }}
+                  className="block w-full text-left py-2 text-orange-600 hover:text-orange-700 font-medium"
+                >
+                  Iniciar Sesión
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -527,7 +635,7 @@ const FerreteriaApp = () => {
               <div className="mt-4 text-sm" style={{ color: '#9CA3AF' }}>
                 <p>✅ Datos en tiempo real</p>
                 <p>✅ Inventario actualizado</p>
-                <p>✅ Conectado con MySQL</p>
+                <p>✅ Sistema de usuarios integrado</p>
               </div>
             </div>
             <div>
@@ -545,10 +653,17 @@ const FerreteriaApp = () => {
           </div>
           <div className="border-t border-slate-600 mt-8 pt-8 text-center" style={{ color: '#9CA3AF' }}>
             <p>&copy; 2024 Ferretería Kiam. Todos los derechos reservados.</p>
-            <p className="text-xs mt-2">Versión con backend conectado - {products.length} productos cargados</p>
+            <p className="text-xs mt-2">Versión con sistema de usuarios - {products.length} productos cargados</p>
           </div>
         </div>
       </footer>
+
+      {/* Modal de Autenticación */}
+      <AuthModal 
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onLogin={handleLogin}
+      />
     </div>
   );
 };
