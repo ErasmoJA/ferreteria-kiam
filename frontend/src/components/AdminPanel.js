@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from './admin/AdminLayout';
 import AdminDashboard from './admin/AdminDashboard';
 import ProductForm from './admin/ProductForm';
+import UserManagementPage from './admin/UserManagementPage'; // ← NUEVA IMPORTACIÓN
 import { Edit, Trash2, Eye, Plus, Search, Filter } from 'lucide-react';
 
 // Servicio de administración
@@ -58,16 +59,111 @@ const adminService = {
     return response.json();
   },
 
-  getUsers: async (page = 1, limit = 20) => {
+  // ==========================================
+  // NUEVOS MÉTODOS PARA GESTIÓN DE USUARIOS
+  // ==========================================
+
+  getUsers: async (page = 1, limit = 50, filters = {}) => {
     const token = localStorage.getItem('authToken');
-    const response = await fetch(`http://localhost:5000/api/admin/users?page=${page}&limit=${limit}`, {
+    const params = new URLSearchParams({ page, limit, ...filters });
+    const response = await fetch(`http://localhost:5000/api/auth/users?${params}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return response.json();
+  },
+
+  getUserById: async (id) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`http://localhost:5000/api/auth/users/${id}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return response.json();
+  },
+
+  createUser: async (userData) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch('http://localhost:5000/api/auth/register', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(userData)
+    });
+    return response.json();
+  },
+
+  updateUser: async (id, userData) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`http://localhost:5000/api/auth/users/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(userData)
+    });
+    return response.json();
+  },
+
+  deleteUser: async (id) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`http://localhost:5000/api/auth/users/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return response.json();
+  },
+
+  toggleUserStatus: async (id, activo) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`http://localhost:5000/api/auth/users/${id}/status`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ activo })
+    });
+    return response.json();
+  },
+
+  changeUserRole: async (id, nuevo_rol) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`http://localhost:5000/api/auth/users/${id}/role`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ nuevo_rol })
+    });
+    return response.json();
+  },
+
+  resetUserPassword: async (id, nueva_password) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`http://localhost:5000/api/auth/users/${id}/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ nueva_password })
+    });
+    return response.json();
+  },
+
+  getUserStats: async () => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch('http://localhost:5000/api/auth/stats', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     return response.json();
   }
 };
 
-// Servicio de categorías (reutilizar del proyecto)
+// Servicio de categorías (sin cambios)
 const categoryService = {
   getCategories: async () => {
     const response = await fetch('http://localhost:5000/api/categories');
@@ -165,7 +261,7 @@ const AdminPanel = ({ user, onLogout, onBackToStore }) => {
   };
 
   const handleDeleteProduct = async (productId, productName) => {
-    if (confirm(`¿Estás seguro de que quieres eliminar "${productName}"?`)) {
+    if (window.confirm(`¿Estás seguro de que quieres eliminar "${productName}"?`)) {
       try {
         const response = await adminService.deleteProduct(productId);
         if (response.success) {
@@ -185,6 +281,22 @@ const AdminPanel = ({ user, onLogout, onBackToStore }) => {
     setEditingProduct(product);
     setShowProductForm(true);
   };
+
+  // ==========================================
+  // FUNCIONES PARA GESTIÓN DE USUARIOS
+  // ==========================================
+
+  const handleUserUpdate = (updatedUser) => {
+    // Si el usuario actualizado es el usuario actual, actualizar el estado
+    if (updatedUser.id === user.id) {
+      // Aquí podrías llamar a una función del componente padre para actualizar el usuario
+      console.log('Usuario actual actualizado:', updatedUser);
+    }
+  };
+
+  // ==========================================
+  // RENDERIZADO DE PÁGINAS
+  // ==========================================
 
   const renderProductsPage = () => (
     <div>
@@ -377,95 +489,6 @@ const AdminPanel = ({ user, onLogout, onBackToStore }) => {
     </div>
   );
 
-  const renderUsersPage = () => (
-    <div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Gestión de Usuarios</h1>
-      
-      {loading ? (
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
-          <span className="ml-2">Cargando usuarios...</span>
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Usuario
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contacto
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Rol
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Estado
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Registro
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                        <span className="text-gray-600 font-medium text-sm">
-                          {user.nombre.charAt(0)}{user.apellidos.charAt(0)}
-                        </span>
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {user.nombre} {user.apellidos}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          ID: {user.id}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{user.email}</div>
-                    {user.telefono && (
-                      <div className="text-sm text-gray-500">{user.telefono}</div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.tipo_usuario === 'admin' || user.tipo_usuario === 'super_admin'
-                        ? 'bg-purple-100 text-purple-800'
-                        : user.tipo_usuario === 'manager'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {user.tipo_usuario}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.activo
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {user.activo ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(user.fecha_registro).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-
   const renderPageContent = () => {
     switch (currentPage) {
       case 'dashboard':
@@ -473,7 +496,12 @@ const AdminPanel = ({ user, onLogout, onBackToStore }) => {
       case 'products':
         return renderProductsPage();
       case 'users':
-        return renderUsersPage();
+        return (
+          <UserManagementPage 
+            currentUser={user}
+            onUserUpdate={handleUserUpdate}
+          />
+        );
       default:
         return (
           <div className="text-center py-12">
