@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingCart, Menu, X, User, LogOut } from 'lucide-react';
+import { ShoppingCart, Menu, X, User, LogOut, Settings } from 'lucide-react';
 
 const Header = ({ 
   currentPage, 
@@ -8,7 +8,9 @@ const Header = ({
   onLogout, 
   onOpenAuth, 
   cartTotal, 
-  cartItemCount 
+  cartItemCount,
+  isAdmin,
+  onAdminToggle
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -26,6 +28,11 @@ const Header = ({
   const handleAuthClick = () => {
     onOpenAuth();
     setIsMenuOpen(false);
+  };
+
+  const handleAdminClick = () => {
+    onAdminToggle();
+    setIsUserMenuOpen(false);
   };
 
   return (
@@ -80,6 +87,18 @@ const Header = ({
             </div>
             <span className="font-medium text-slate-800">${cartTotal}</span>
             
+            {/* Botón de Admin (solo si es admin) */}
+            {isAdmin && (
+              <button
+                onClick={handleAdminClick}
+                className="bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm flex items-center"
+                title="Panel de Administración"
+              >
+                <Settings className="h-4 w-4 mr-1" />
+                <span className="hidden lg:block">Admin</span>
+              </button>
+            )}
+            
             {/* Usuario o botones de auth */}
             {user ? (
               <div className="relative">
@@ -96,7 +115,13 @@ const Header = ({
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-orange-100 z-50">
                     <div className="py-2">
                       <div className="px-4 py-2 text-sm text-slate-600 border-b border-orange-100">
-                        {user.email}
+                        <div className="font-medium">{user.nombre} {user.apellidos}</div>
+                        <div className="text-xs text-gray-500">{user.email}</div>
+                        {isAdmin && (
+                          <div className="text-xs text-purple-600 font-medium mt-1">
+                            {user.tipo_usuario}
+                          </div>
+                        )}
                       </div>
                       <button 
                         className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-orange-50 transition-colors"
@@ -116,6 +141,18 @@ const Header = ({
                       >
                         Mis Pedidos
                       </button>
+                      {isAdmin && (
+                        <>
+                          <hr className="border-orange-100" />
+                          <button 
+                            onClick={handleAdminClick}
+                            className="w-full text-left px-4 py-2 text-sm text-purple-600 hover:bg-purple-50 transition-colors flex items-center"
+                          >
+                            <Settings className="h-4 w-4 mr-2" />
+                            Panel Admin
+                          </button>
+                        </>
+                      )}
                       <hr className="border-orange-100" />
                       <button 
                         onClick={handleLogout}
@@ -174,6 +211,14 @@ const Header = ({
                 className="block w-full text-left py-2 text-orange-600 hover:text-orange-700 font-medium"
               >
                 Iniciar Sesión
+              </button>
+            )}
+            {isAdmin && (
+              <button 
+                onClick={handleAdminClick}
+                className="block w-full text-left py-2 text-purple-600 hover:text-purple-700 font-medium"
+              >
+                Panel Admin
               </button>
             )}
           </div>

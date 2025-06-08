@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import './App.css';
 
-// Importar componentes
+// Importar componentes principales
 import Header from './components/Header';
 import HomePage from './components/HomePage';
 import ProductsPage from './components/ProductsPage';
 import AuthModal from './components/AuthModal';
 import Footer from './components/Footer';
+import AdminPanel from './components/AdminPanel';
 
 // Importar hooks personalizados
 import { useAuth } from './hooks/useAuth';
@@ -16,6 +17,7 @@ const FerreteriaApp = () => {
   // Estados de navegación
   const [currentPage, setCurrentPage] = useState('home');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   // Estados del carrito
   const [cart, setCart] = useState([]);
@@ -47,6 +49,11 @@ const FerreteriaApp = () => {
     loadFeaturedProducts,
     clearFilters
   } = useProducts();
+
+  // Verificar si el usuario es administrador
+  const isAdmin = () => {
+    return user && ['admin', 'manager', 'super_admin'].includes(user.tipo_usuario);
+  };
 
   // Funciones del carrito
   const addToCart = (product) => {
@@ -84,6 +91,13 @@ const FerreteriaApp = () => {
   const handleLogoutClick = () => {
     handleLogout();
     setCart([]); // Limpiar carrito al cerrar sesión
+    setShowAdminPanel(false); // Salir del panel admin
+  };
+
+  const handleAdminToggle = () => {
+    if (isAdmin()) {
+      setShowAdminPanel(!showAdminPanel);
+    }
   };
 
   // Loading state global
@@ -95,6 +109,18 @@ const FerreteriaApp = () => {
     );
   }
 
+  // Si está en modo admin y es administrador, mostrar panel admin
+  if (showAdminPanel && isAdmin()) {
+    return (
+      <AdminPanel 
+        user={user}
+        onLogout={handleLogoutClick}
+        onBackToStore={() => setShowAdminPanel(false)}
+      />
+    );
+  }
+
+  // Interfaz normal de la tienda
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F5F1E8' }}>
       {/* Header */}
@@ -106,6 +132,8 @@ const FerreteriaApp = () => {
         onOpenAuth={() => setIsAuthModalOpen(true)}
         cartTotal={getCartTotal()}
         cartItemCount={getCartItemCount()}
+        isAdmin={isAdmin()}
+        onAdminToggle={handleAdminToggle}
       />
 
       {/* Main Content */}
