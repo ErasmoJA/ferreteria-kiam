@@ -298,22 +298,10 @@ router.post('/products', async (req, res) => {
 router.put('/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      nombre,
-      descripcion,
-      precio,
-      precio_oferta,
-      categoria_id,
-      stock,
-      stock_minimo,
-      marca,
-      modelo,
-      peso,
-      dimensiones,
-      garantia_meses,
-      destacado,
-      activo
-    } = req.body;
+    const productData = req.body;
+
+    console.log('📝 Actualizando producto ID:', id);
+    console.log('📦 Datos recibidos:', productData);
 
     // Verificar que el producto existe
     const [productCheck] = await pool.execute(`
@@ -327,30 +315,82 @@ router.put('/products/:id', async (req, res) => {
       });
     }
 
-    // Actualizar producto
-    const [result] = await pool.execute(`
-      UPDATE productos 
-      SET 
-        nombre = COALESCE(?, nombre),
-        descripcion = COALESCE(?, descripcion),
-        precio = COALESCE(?, precio),
-        precio_oferta = ?,
-        categoria_id = COALESCE(?, categoria_id),
-        stock = COALESCE(?, stock),
-        stock_minimo = COALESCE(?, stock_minimo),
-        marca = COALESCE(?, marca),
-        modelo = COALESCE(?, modelo),
-        peso = COALESCE(?, peso),
-        dimensiones = COALESCE(?, dimensiones),
-        garantia_meses = COALESCE(?, garantia_meses),
-        destacado = COALESCE(?, destacado),
-        activo = COALESCE(?, activo)
-      WHERE id = ?
-    `, [
-      nombre, descripcion, precio, precio_oferta, categoria_id,
-      stock, stock_minimo, marca, modelo, peso, dimensiones,
-      garantia_meses, destacado, activo, id
-    ]);
+    // Mapeo de campos y sus tipos
+    const fieldMapping = {
+      nombre: { type: 'string' },
+      descripcion: { type: 'string' },
+      precio: { type: 'decimal' },
+      precio_oferta: { type: 'decimal', nullable: true },
+      categoria_id: { type: 'int' },
+      stock: { type: 'int' },
+      stock_minimo: { type: 'int' },
+      marca: { type: 'string', nullable: true },
+      modelo: { type: 'string', nullable: true },
+      peso: { type: 'decimal', nullable: true },
+      dimensiones: { type: 'string', nullable: true },
+      garantia_meses: { type: 'int' },
+      destacado: { type: 'boolean' },
+      activo: { type: 'boolean' }
+    };
+
+    // Construir la actualización dinámicamente
+    const updates = [];
+    const values = [];
+
+    for (const [field, config] of Object.entries(fieldMapping)) {
+      if (field in productData) {
+        let value = productData[field];
+
+        // Convertir según el tipo
+        if (value === null || value === '') {
+          // Si el campo permite null y el valor es null o string vacío
+          if (config.nullable) {
+            updates.push(`${field} = ?`);
+            values.push(null);
+          } else if (value !== null) {
+            // Si no permite null pero no es null, usar el valor
+            updates.push(`${field} = ?`);
+            values.push(convertValue(value, config.type));
+          }
+        } else if (value !== undefined) {
+          // Valor normal, convertir según tipo
+          updates.push(`${field} = ?`);
+          values.push(convertValue(value, config.type));
+        }
+      }
+    }
+
+    // Función helper para convertir valores
+    function convertValue(value, type) {
+      switch (type) {
+        case 'int':
+          return parseInt(value) || 0;
+        case 'decimal':
+          return parseFloat(value) || 0;
+        case 'boolean':
+          return value === true || value === 1 || value === '1' ? 1 : 0;
+        case 'string':
+        default:
+          return String(value);
+      }
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No se proporcionaron campos para actualizar'
+      });
+    }
+
+    // Agregar ID al final
+    values.push(id);
+
+    const query = `UPDATE productos SET ${updates.join(', ')} WHERE id = ?`;
+    
+    console.log('🔍 Query:', query);
+    console.log('🔍 Values:', values);
+
+    const [result] = await pool.execute(query, values);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({
@@ -368,7 +408,7 @@ router.put('/products/:id', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error actualizando producto:', error);
+    console.error('❌ Error actualizando producto:', error);
     res.status(500).json({
       success: false,
       error: 'Error actualizando producto',
