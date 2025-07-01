@@ -1,4 +1,3 @@
-// backend/routes/admin.js
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/database');
@@ -40,7 +39,7 @@ router.get('/dashboard/stats', async (req, res) => {
       SELECT 
         COUNT(*) as total_usuarios,
         COUNT(CASE WHEN tipo_usuario = 'cliente' THEN 1 END) as clientes,
-        COUNT(CASE WHEN tipo_usuario = 'admin' THEN 1 END) as administradores,
+        COUNT(CASE WHEN tipo_usuario IN ('admin', 'super_admin') THEN 1 END) as administradores,
         COUNT(CASE WHEN DATE(fecha_registro) = CURDATE() THEN 1 END) as usuarios_hoy
       FROM usuarios 
       WHERE activo = 1
@@ -343,17 +342,14 @@ router.put('/products/:id', async (req, res) => {
 
         // Convertir según el tipo
         if (value === null || value === '') {
-          // Si el campo permite null y el valor es null o string vacío
           if (config.nullable) {
             updates.push(`${field} = ?`);
             values.push(null);
           } else if (value !== null) {
-            // Si no permite null pero no es null, usar el valor
             updates.push(`${field} = ?`);
             values.push(convertValue(value, config.type));
           }
         } else if (value !== undefined) {
-          // Valor normal, convertir según tipo
           updates.push(`${field} = ?`);
           values.push(convertValue(value, config.type));
         }
@@ -453,155 +449,6 @@ router.delete('/products/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Error eliminando producto',
-      message: error.message
-    });
-  }
-});
-
-// =============================================
-// GESTIÓN DE USUARIOS
-// =============================================
-
-// GET /api/admin/users - Listar usuarios
-router.get('/users', async (req, res) => {
-  try {
-    const { page = 1, limit = 20, tipo_usuario, activo } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-
-    let whereClause = 'WHERE 1=1';
-    const queryParams = [];
-
-    if (tipo_usuario && tipo_usuario !== 'all') {
-      whereClause += ' AND tipo_usuario = ?';
-      queryParams.push(tipo_usuario);
-    }
-
-    if (activo !== undefined) {
-      whereClause += ' AND activo = ?';
-      queryParams.push(activo === 'true' ? 1 : 0);
-    }
-
-    const [users] = await pool.execute(`
-      SELECT 
-        id, nombre, apellidos, email, telefono, 
-        tipo_usuario, activo, fecha_registro, ultimo_acceso
-      FROM usuarios
-      ${whereClause}
-      ORDER BY fecha_registro DESC
-      LIMIT ? OFFSET ?
-    `, [...queryParams, parseInt(limit), offset]);
-
-    // Contar total
-    const [countResult] = await pool.execute(`
-      SELECT COUNT(*) as total FROM usuarios ${whereClause}
-    `, queryParams);
-
-    const total = countResult[0].total;
-
-    res.json({
-      success: true,
-      data: users,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
-        totalUsers: total
-      }
-    });
-
-  } catch (error) {
-    console.error('Error obteniendo usuarios:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Error obteniendo usuarios',
-      message: error.message
-    });
-  }
-});
-
-// PUT /api/admin/users/:id/role - Cambiar rol de usuario
-router.put('/users/:id/role', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { nuevo_rol } = req.body;
-
-    // Validar rol
-    const rolesValidos = ['cliente', 'empleado', 'manager', 'admin'];
-    if (!rolesValidos.includes(nuevo_rol)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Rol inválido'
-      });
-    }
-
-    // Solo super_admin puede crear otros admin
-    if (nuevo_rol === 'admin' && req.user.tipo_usuario !== 'super_admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Solo super admin puede crear administradores'
-      });
-    }
-
-    const [result] = await pool.execute(`
-      UPDATE usuarios SET tipo_usuario = ? WHERE id = ?
-    `, [nuevo_rol, id]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Usuario no encontrado'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        id: parseInt(id),
-        nuevo_rol,
-        message: 'Rol actualizado exitosamente'
-      }
-    });
-
-  } catch (error) {
-    console.error('Error actualizando rol:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Error actualizando rol',
-      message: error.message
-    });
-  }
-});
-
-// PUT /api/admin/users/:id/status - Activar/desactivar usuario
-router.put('/users/:id/status', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { activo } = req.body;
-
-    const [result] = await pool.execute(`
-      UPDATE usuarios SET activo = ? WHERE id = ?
-    `, [activo, id]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Usuario no encontrado'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        id: parseInt(id),
-        activo,
-        message: `Usuario ${activo ? 'activado' : 'desactivado'} exitosamente`
-      }
-    });
-
-  } catch (error) {
-    console.error('Error actualizando status:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Error actualizando status',
       message: error.message
     });
   }

@@ -109,6 +109,10 @@ router.get('/', async (req, res) => {
       countParams.push(parseFloat(maxPrice));
     }
 
+    if (featured === 'true') {
+      countQuery += ` AND p.destacado = 1`;
+    }
+
     const [countResult] = await pool.execute(countQuery, countParams);
     const total = countResult[0].total;
 
@@ -172,29 +176,9 @@ router.get('/:id', async (req, res) => {
       });
     }
 
-    // Obtener reseñas del producto
-    const [reviews] = await pool.execute(`
-      SELECT 
-        r.id,
-        r.calificacion,
-        r.titulo,
-        r.comentario,
-        r.fecha_resena,
-        u.nombre,
-        u.apellidos
-      FROM resenas r
-      JOIN usuarios u ON r.usuario_id = u.id
-      WHERE r.producto_id = ?
-      ORDER BY r.fecha_resena DESC
-      LIMIT 10
-    `, [id]);
-
     res.json({
       success: true,
-      data: {
-        ...products[0],
-        resenas: reviews
-      }
+      data: products[0]
     });
 
   } catch (error) {
@@ -268,20 +252,18 @@ router.get('/search/:term', async (req, res) => {
         p.total_resenas,
         p.marca,
         p.imagen_principal,
-        c.nombre as categoria_nombre,
-        MATCH(p.nombre, p.descripcion) AGAINST(? IN BOOLEAN MODE) as relevancia
+        c.nombre as categoria_nombre
       FROM productos p
       JOIN categorias c ON p.categoria_id = c.id
       WHERE (
-        MATCH(p.nombre, p.descripcion) AGAINST(? IN BOOLEAN MODE)
-        OR p.nombre LIKE ?
+        p.nombre LIKE ?
         OR p.descripcion LIKE ?
         OR p.marca LIKE ?
       )
       AND p.activo = 1 AND c.activo = 1
-      ORDER BY relevancia DESC, p.calificacion_promedio DESC
+      ORDER BY p.calificacion_promedio DESC
       LIMIT ?
-    `, [term, term, `%${term}%`, `%${term}%`, `%${term}%`, parseInt(limit)]);
+    `, [`%${term}%`, `%${term}%`, `%${term}%`, parseInt(limit)]);
 
     res.json({
       success: true,
@@ -295,53 +277,6 @@ router.get('/search/:term', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Error en búsqueda',
-      message: error.message
-    });
-  }
-});
-
-// POST /api/products - Crear nuevo producto (solo admin)
-router.post('/', async (req, res) => {
-  try {
-    const {
-      nombre,
-      descripcion,
-      precio,
-      categoria_id,
-      stock = 0,
-      marca,
-      modelo,
-      peso,
-      dimensiones
-    } = req.body;
-
-    // Validaciones básicas
-    if (!nombre || !precio || !categoria_id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Nombre, precio y categoría son requeridos'
-      });
-    }
-
-    const [result] = await pool.execute(`
-      INSERT INTO productos (
-        nombre, descripcion, precio, categoria_id, stock, marca, modelo, peso, dimensiones
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [nombre, descripcion, precio, categoria_id, stock, marca, modelo, peso, dimensiones]);
-
-    res.status(201).json({
-      success: true,
-      data: {
-        id: result.insertId,
-        message: 'Producto creado exitosamente'
-      }
-    });
-
-  } catch (error) {
-    console.error('Error creando producto:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Error creando producto',
       message: error.message
     });
   }

@@ -1,16 +1,15 @@
 const mysql = require('mysql2');
+require('dotenv').config();
 
-// Configuración de la base de datos para MySQL Server
+// Configuración para MySQL Workbench (solo opciones válidas)
 const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
+  host: process.env.DB_HOST || '127.0.0.1',
+  user: process.env.DB_USER || 'ferreteria_user',
   password: process.env.DB_PASSWORD || '1234',
   database: process.env.DB_NAME || 'ferreteria_db',
-  port: process.env.DB_PORT || 3306,
+  port: parseInt(process.env.DB_PORT) || 3306,
   charset: 'utf8mb4',
-  timezone: process.env.DB_TIMEZONE || '+00:00',
-  
-  // Configuraciones válidas para MySQL2
+  timezone: '+00:00',
   ssl: false,
   multipleStatements: false,
   supportBigNumbers: true,
@@ -18,48 +17,49 @@ const dbConfig = {
   dateStrings: false
 };
 
-// Crear pool de conexiones optimizado para MySQL Server
+// Crear pool de conexiones con configuraciones válidas
 const pool = mysql.createPool({
   ...dbConfig,
   waitForConnections: true,
-  connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT) || 10,
+  connectionLimit: 10,
   queueLimit: 0
 });
 
-// Promisificar el pool para usar async/await
+// Promisificar el pool
 const promisePool = pool.promise();
 
-// Función para probar la conexión con MySQL Server
+// Función para probar la conexión
 async function testConnection() {
   try {
-    console.log('🔄 Intentando conectar a MySQL Server...');
-    console.log(`📍 Host: ${dbConfig.host}:${dbConfig.port}`);
+    console.log('🔄 Conectando a MySQL Workbench...');
+    console.log(`📍 Servidor: ${dbConfig.host}:${dbConfig.port}`);
     console.log(`👤 Usuario: ${dbConfig.user}`);
     console.log(`🗄️ Base de datos: ${dbConfig.database}`);
     
-    const [rows] = await promisePool.execute('SELECT 1 as test, NOW() as current_time, VERSION() as mysql_version');
+    const [rows] = await promisePool.execute(
+      'SELECT 1 as test, NOW() as `current_time`, VERSION() as mysql_version'
+    );
     
-    console.log('✅ Conexión a MySQL Server exitosa');
+    console.log('✅ Conexión exitosa a MySQL Workbench');
     console.log(`🕒 Hora del servidor: ${rows[0].current_time}`);
     console.log(`🔢 Versión MySQL: ${rows[0].mysql_version}`);
     
     return true;
   } catch (error) {
-    console.error('❌ Error conectando a MySQL Server:', error.message);
+    console.error('❌ Error conectando a MySQL Workbench:', error.message);
     console.error('🔍 Verifica que:');
     console.error('   - MySQL Server esté ejecutándose');
     console.error('   - Las credenciales sean correctas');
     console.error('   - La base de datos "ferreteria_db" exista');
-    console.error('   - El puerto 3306 esté disponible');
+    console.error('   - El usuario "ferreteria_user" tenga permisos');
     
     return false;
   }
 }
 
-// Función para obtener información detallada de la base de datos
+// Función para obtener información de la BD
 async function getDatabaseInfo() {
   try {
-    // Información básica de la base de datos
     const [dbInfo] = await promisePool.execute(`
       SELECT 
         SCHEMA_NAME as database_name,
@@ -69,7 +69,6 @@ async function getDatabaseInfo() {
       WHERE SCHEMA_NAME = ?
     `, [dbConfig.database]);
 
-    // Obtener tablas
     const [tables] = await promisePool.execute(`
       SELECT 
         TABLE_NAME,
@@ -82,19 +81,18 @@ async function getDatabaseInfo() {
       ORDER BY TABLE_NAME
     `, [dbConfig.database]);
     
-    // Contar productos y categorías
-    const [productCount] = await promisePool.execute(`
-      SELECT COUNT(*) as count FROM productos WHERE activo = 1
-    `);
+    // Contar registros principales
+    const [productCount] = await promisePool.execute(
+      'SELECT COUNT(*) as count FROM productos WHERE activo = 1'
+    );
     
-    const [categoryCount] = await promisePool.execute(`
-      SELECT COUNT(*) as count FROM categorias WHERE activo = 1
-    `);
+    const [categoryCount] = await promisePool.execute(
+      'SELECT COUNT(*) as count FROM categorias WHERE activo = 1'
+    );
 
-    // Contar usuarios
-    const [userCount] = await promisePool.execute(`
-      SELECT COUNT(*) as count FROM usuarios WHERE activo = 1
-    `);
+    const [userCount] = await promisePool.execute(
+      'SELECT COUNT(*) as count FROM usuarios WHERE activo = 1'
+    );
     
     return {
       database: dbInfo[0] || {},
@@ -111,31 +109,27 @@ async function getDatabaseInfo() {
       }
     };
   } catch (error) {
-    console.error('Error obteniendo info de DB:', error);
+    console.error('Error obteniendo info de BD:', error);
     return null;
   }
 }
 
-// Función helper para ejecutar queries con manejo de errores mejorado
+// Helper para ejecutar queries
 async function executeQuery(query, params = []) {
   try {
     const [rows] = await promisePool.execute(query, params);
     return { success: true, data: rows };
   } catch (error) {
     console.error('❌ Error ejecutando query:', error.message);
-    console.error('📝 Query:', query);
-    console.error('🔢 Params:', params);
-    
     return { 
       success: false, 
       error: error.message,
-      code: error.code,
-      sqlState: error.sqlState
+      code: error.code
     };
   }
 }
 
-// Función helper para transacciones con rollback automático
+// Helper para transacciones
 async function executeTransaction(queries) {
   const connection = await promisePool.getConnection();
   try {
@@ -169,28 +163,7 @@ async function executeTransaction(queries) {
   }
 }
 
-// Función para monitorear el estado de la conexión
-async function getConnectionStatus() {
-  try {
-    const [status] = await promisePool.execute(`
-      SHOW STATUS WHERE Variable_name IN (
-        'Connections', 'Threads_connected', 'Threads_running', 'Uptime'
-      )
-    `);
-    
-    const connectionInfo = {};
-    status.forEach(row => {
-      connectionInfo[row.Variable_name] = row.Value;
-    });
-    
-    return connectionInfo;
-  } catch (error) {
-    console.error('Error obteniendo estado de conexión:', error);
-    return null;
-  }
-}
-
-// Manejo de eventos de conexión
+// Manejo de eventos del pool
 pool.on('connection', (connection) => {
   console.log('🔗 Nueva conexión establecida:', connection.threadId);
 });
@@ -202,11 +175,11 @@ pool.on('error', (err) => {
   }
 });
 
-// Función para cerrar todas las conexiones al finalizar la aplicación
+// Función para cerrar conexiones
 async function closeConnections() {
   try {
     await pool.end();
-    console.log('🔌 Conexiones a MySQL Server cerradas correctamente');
+    console.log('🔌 Conexiones cerradas correctamente');
   } catch (error) {
     console.error('❌ Error cerrando conexiones:', error.message);
   }
@@ -231,7 +204,6 @@ module.exports = {
   getDatabaseInfo,
   executeQuery,
   executeTransaction,
-  getConnectionStatus,
   closeConnections,
   dbConfig
 };
