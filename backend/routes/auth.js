@@ -426,5 +426,483 @@ router.post('/logout', verifyToken, (req, res) => {
   });
 });
 
+// =============================================
+// AGREGAR AL FINAL DE backend/routes/auth.js
+// =============================================
+
+// GET /api/auth/users - Obtener todos los usuarios (ADMIN ONLY)
+router.get('/users', verifyToken, async (req, res) => {
+  try {
+    console.log('🔍 Getting users for admin panel...');
+    console.log('👤 Requesting user:', req.user);
+
+    // Verificar permisos de administrador
+    if (!req.user || !['admin', 'manager', 'super_admin'].includes(req.user.tipo_usuario)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Acceso denegado. Se requieren permisos de administrador'
+      });
+    }
+
+    const { 
+      page = 1, 
+      limit = 50, 
+      search, 
+      tipo_usuario,
+      activo 
+    } = req.query;
+
+    console.log('📋 Query params:', req.query);
+
+    // Construir consulta base simple (sin parámetros preparados problemáticos)
+    let query = `
+      SELECT 
+        u.id,
+        u.nombre,
+        u.apellidos,
+        u.email,
+        u.telefono,
+        u.fecha_nacimiento,
+        u.tipo_usuario,
+        u.activo,
+        u.email_verificado,
+        u.fecha_registro,
+        u.ultimo_acceso
+      FROM usuarios u
+      WHERE 1=1
+    `;
+
+    // Aplicar filtros usando valores directos (misma estrategia que productos)
+    if (search && typeof search === 'string' && search.trim().length > 0) {
+      const safeSearchTerm = search.replace(/['"\\]/g, '').trim();
+      query += ` AND (u.nombre LIKE '%${safeSearchTerm}%' OR u.apellidos LIKE '%${safeSearchTerm}%' OR u.email LIKE '%${safeSearchTerm}%')`;
+    }
+
+    if (tipo_usuario && typeof tipo_usuario === 'string' && tipo_usuario !== 'all') {
+      const safeTipoUsuario = tipo_usuario.replace(/[^a-zA-Z_]/g, '');
+      query += ` AND u.tipo_usuario = '${safeTipoUsuario}'`;
+    }
+
+    if (activo && (activo === 'true' || activo === 'false')) {
+      const activoValue = activo === 'true' ? '1' : '0';
+      query += ` AND u.activo = ${activoValue}`;
+    }
+
+    // Ordenamiento
+    query += ` ORDER BY u.fecha_registro DESC`;
+
+    // Paginación
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 50));
+    const offset = (pageNum - 1) * limitNum;
+    
+    query += ` LIMIT ${limitNum} OFFSET ${offset}`;
+
+    console.log('📝 Final users query:', query);
+
+    // Ejecutar consulta SIN parámetros preparados
+    const [users] = await pool.execute(query);
+
+    // Consulta de conteo
+    let countQuery = `
+      SELECT COUNT(*) as total
+      FROM usuarios u
+      WHERE 1=1
+    `;
+
+    // Aplicar mismos filtros para el conteo
+    if (search && typeof search === 'string' && search.trim().length > 0) {
+      const safeSearchTerm = search.replace(/['"\\]/g, '').trim();
+      countQuery += ` AND (u.nombre LIKE '%${safeSearchTerm}%' OR u.apellidos LIKE '%${safeSearchTerm}%' OR u.email LIKE '%${safeSearchTerm}%')`;
+    }
+
+    if (tipo_usuario && typeof tipo_usuario === 'string' && tipo_usuario !== 'all') {
+      const safeTipoUsuario = tipo_usuario.replace(/[^a-zA-Z_]/g, '');
+      countQuery += ` AND u.tipo_usuario = '${safeTipoUsuario}'`;
+    }
+
+    if (activo && (activo === 'true' || activo === 'false')) {
+      const activoValue = activo === 'true' ? '1' : '0';
+      countQuery += ` AND u.activo = ${activoValue}`;
+    }
+
+    const [countResult] = await pool.execute(countQuery);
+    const total = countResult[0].total;
+
+    console.log('✅ Users query successful, users found:', users.length);
+
+    res.json({
+      success: true,
+      data: users,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: Math.ceil(total / limitNum),
+        totalUsers: total,
+        hasNext: offset + users.length < total,
+        hasPrev: pageNum > 1
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo usuarios:', error);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error code:', error.code);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Error obteniendo usuarios',
+      message: error.message,
+      code: error.code
+    });
+  }
+});
+
+// GET /api/auth/users/:id - Obtener usuario específico (ADMIN ONLY)
+router.get('/users/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verificar permisos
+    if (!req.user || !['admin', 'manager', 'super_admin'].includes(req.user.tipo_usuario)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Acceso denegado'
+      });
+    }
+
+    // Validar ID
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({
+        success: false,
+        error: 'ID de usuario inválido'
+      });
+    }
+
+    const userId = parseInt(id);
+
+    // Consulta directa sin parámetros preparados
+    const [users] = await pool.execute(`
+      SELECT 
+        u.id,
+        u.nombre,
+        u.apellidos,
+        u.email,
+        u.telefono,
+        u.fecha_nacimiento,
+        u.tipo_usuario,
+        u.activo,
+        u.email_verificado,
+        u.fecha_registro,
+        u.ultimo_acceso
+      FROM usuarios u
+      WHERE u.id = ${userId}
+    `);
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: users[0]
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo usuario:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error obteniendo usuario',
+      message: error.message
+    });
+  }
+});
+
+// PUT /api/auth/users/:id - Actualizar usuario (ADMIN ONLY)
+router.put('/users/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    console.log('🔄 Updating user ID:', id);
+    console.log('📦 Update data:', updateData);
+
+    // Verificar permisos
+    if (!req.user || !['admin', 'super_admin'].includes(req.user.tipo_usuario)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Acceso denegado'
+      });
+    }
+
+    // Validar ID
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({
+        success: false,
+        error: 'ID de usuario inválido'
+      });
+    }
+
+    const userId = parseInt(id);
+
+    // Verificar que el usuario existe
+    const [userCheck] = await pool.execute(`
+      SELECT id FROM usuarios WHERE id = ${userId}
+    `);
+
+    if (userCheck.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado'
+      });
+    }
+
+    // Construir actualización dinámicamente pero de forma segura
+    const allowedFields = ['nombre', 'apellidos', 'email', 'telefono', 'fecha_nacimiento', 'tipo_usuario', 'activo'];
+    const updates = [];
+
+    for (const field of allowedFields) {
+      if (field in updateData && updateData[field] !== undefined) {
+        let value = updateData[field];
+        
+        // Escape seguro según el tipo de campo
+        if (typeof value === 'string') {
+          value = value.replace(/'/g, "''"); // Escape single quotes
+          updates.push(`${field} = '${value}'`);
+        } else if (typeof value === 'boolean') {
+          updates.push(`${field} = ${value ? 1 : 0}`);
+        } else if (value === null) {
+          updates.push(`${field} = NULL`);
+        } else {
+          updates.push(`${field} = '${value}'`);
+        }
+      }
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No se proporcionaron campos válidos para actualizar'
+      });
+    }
+
+    // Ejecutar actualización
+    const updateQuery = `UPDATE usuarios SET ${updates.join(', ')} WHERE id = ${userId}`;
+    console.log('🔄 Update query:', updateQuery);
+
+    const [result] = await pool.execute(updateQuery);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No se pudo actualizar el usuario'
+      });
+    }
+
+    console.log('✅ User updated successfully');
+
+    res.json({
+      success: true,
+      data: {
+        id: userId,
+        message: 'Usuario actualizado exitosamente'
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating user:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error actualizando usuario',
+      message: error.message
+    });
+  }
+});
+
+// DELETE /api/auth/users/:id - Eliminar usuario (ADMIN ONLY)
+router.delete('/users/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verificar permisos
+    if (!req.user || !['admin', 'super_admin'].includes(req.user.tipo_usuario)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Acceso denegado'
+      });
+    }
+
+    // Validar ID
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({
+        success: false,
+        error: 'ID de usuario inválido'
+      });
+    }
+
+    const userId = parseInt(id);
+
+    // No permitir auto-eliminación
+    if (userId === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        error: 'No puedes eliminar tu propia cuenta'
+      });
+    }
+
+    // Verificar que el usuario existe
+    const [userCheck] = await pool.execute(`
+      SELECT id, nombre, apellidos FROM usuarios WHERE id = ${userId}
+    `);
+
+    if (userCheck.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado'
+      });
+    }
+
+    // Soft delete (marcar como inactivo)
+    const [result] = await pool.execute(`
+      UPDATE usuarios SET activo = 0 WHERE id = ${userId}
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        id: userId,
+        nombre: userCheck[0].nombre + ' ' + userCheck[0].apellidos,
+        message: 'Usuario eliminado exitosamente'
+      }
+    });
+
+  } catch (error) {
+    console.error('Error eliminando usuario:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error eliminando usuario',
+      message: error.message
+    });
+  }
+});
+
+// PUT /api/auth/users/:id/status - Cambiar estado de usuario (ADMIN ONLY)
+router.put('/users/:id/status', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { activo } = req.body;
+
+    // Verificar permisos
+    if (!req.user || !['admin', 'super_admin'].includes(req.user.tipo_usuario)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Acceso denegado'
+      });
+    }
+
+    const userId = parseInt(id);
+    
+    // No permitir auto-desactivación
+    if (userId === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        error: 'No puedes cambiar el estado de tu propia cuenta'
+      });
+    }
+
+    const activoValue = activo ? 1 : 0;
+
+    const [result] = await pool.execute(`
+      UPDATE usuarios SET activo = ${activoValue} WHERE id = ${userId}
+    `);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: userId,
+        activo: Boolean(activo),
+        message: `Usuario ${activo ? 'activado' : 'desactivado'} exitosamente`
+      }
+    });
+
+  } catch (error) {
+    console.error('Error cambiando estado de usuario:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error cambiando estado de usuario',
+      message: error.message
+    });
+  }
+});
+
+// POST /api/auth/users/:id/reset-password - Resetear contraseña (ADMIN ONLY)
+router.post('/users/:id/reset-password', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nueva_password } = req.body;
+
+    // Verificar permisos
+    if (!req.user || !['admin', 'super_admin'].includes(req.user.tipo_usuario)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Acceso denegado'
+      });
+    }
+
+    if (!nueva_password || nueva_password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: 'La nueva contraseña debe tener al menos 6 caracteres'
+      });
+    }
+
+    const userId = parseInt(id);
+
+    // Encriptar nueva contraseña
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash(nueva_password, 10);
+    
+    // Escape para seguridad
+    const safeHashedPassword = hashedPassword.replace(/'/g, "''");
+
+    const [result] = await pool.execute(`
+      UPDATE usuarios SET password_hash = '${safeHashedPassword}' WHERE id = ${userId}
+    `);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: userId,
+        message: 'Contraseña actualizada exitosamente'
+      }
+    });
+
+  } catch (error) {
+    console.error('Error reseteando contraseña:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error reseteando contraseña',
+      message: error.message
+    });
+  }
+});
+
+
 module.exports = router;
 module.exports.verifyToken = verifyToken;

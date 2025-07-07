@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/database');
 
-// GET /api/products - Obtener todos los productos con filtros
+// GET /api/products - VERSIÓN FINAL SIN ERRORES DE PARÁMETROS
 router.get('/', async (req, res) => {
   try {
     const { 
@@ -17,6 +17,9 @@ router.get('/', async (req, res) => {
       featured 
     } = req.query;
 
+    console.log('🔍 Query params received:', req.query);
+
+    // Construir consulta base simple
     let query = `
       SELECT 
         p.id,
@@ -37,49 +40,55 @@ router.get('/', async (req, res) => {
       WHERE p.activo = 1 AND c.activo = 1
     `;
 
-    const queryParams = [];
-
-    // Filtros
-    if (category && category !== 'all') {
-      query += ` AND c.nombre = ?`;
-      queryParams.push(category);
+    // ESTRATEGIA: Construir consulta con filtros pero sin parámetros problemáticos
+    
+    // Filtro por categoría (usando valores directos en lugar de parámetros)
+    if (category && category !== 'all' && typeof category === 'string' && category.trim().length > 0) {
+      // Escape manual para seguridad
+      const safeCategoryName = category.replace(/[^a-zA-Z0-9_]/g, '');
+      query += ` AND c.nombre = '${safeCategoryName}'`;
     }
 
-    if (search) {
-      query += ` AND (p.nombre LIKE ? OR p.descripcion LIKE ? OR p.marca LIKE ?)`;
-      const searchTerm = `%${search}%`;
-      queryParams.push(searchTerm, searchTerm, searchTerm);
+    // Filtro por búsqueda (usando LIKE directo)
+    if (search && typeof search === 'string' && search.trim().length > 0) {
+      const safeSearchTerm = search.replace(/['"\\]/g, ''); // Remover caracteres peligrosos
+      query += ` AND (p.nombre LIKE '%${safeSearchTerm}%' OR p.descripcion LIKE '%${safeSearchTerm}%' OR p.marca LIKE '%${safeSearchTerm}%')`;
     }
 
-    if (minPrice) {
-      query += ` AND p.precio >= ?`;
-      queryParams.push(parseFloat(minPrice));
+    // Filtros de precio (con validación)
+    if (minPrice && !isNaN(parseFloat(minPrice)) && parseFloat(minPrice) > 0) {
+      query += ` AND p.precio >= ${parseFloat(minPrice)}`;
     }
 
-    if (maxPrice) {
-      query += ` AND p.precio <= ?`;
-      queryParams.push(parseFloat(maxPrice));
+    if (maxPrice && !isNaN(parseFloat(maxPrice)) && parseFloat(maxPrice) > 0) {
+      query += ` AND p.precio <= ${parseFloat(maxPrice)}`;
     }
 
+    // Filtro por destacado
     if (featured === 'true') {
       query += ` AND p.destacado = 1`;
     }
 
-    // Ordenamiento
-    const allowedSortFields = ['nombre', 'precio', 'calificacion_promedio', 'fecha_creacion'];
-    const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'nombre';
-    const sortOrder = order.toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+    // Ordenamiento (con validación estricta)
+    const allowedSortFields = ['nombre', 'precio', 'calificacion_promedio'];
+    const validSortField = allowedSortFields.includes(sortBy) ? sortBy : 'nombre';
+    const validOrder = (order && order.toLowerCase() === 'desc') ? 'DESC' : 'ASC';
     
-    query += ` ORDER BY p.${sortField} ${sortOrder}`;
+    query += ` ORDER BY p.${validSortField} ${validOrder}`;
 
-    // Paginación
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-    query += ` LIMIT ? OFFSET ?`;
-    queryParams.push(parseInt(limit), offset);
+    // Paginación (con validación)
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, Math.min(50, parseInt(limit) || 12));
+    const offset = (pageNum - 1) * limitNum;
+    
+    query += ` LIMIT ${limitNum} OFFSET ${offset}`;
 
-    const [products] = await pool.execute(query, queryParams);
+    console.log('📝 Final query:', query);
 
-    // Contar total de productos para paginación
+    // Ejecutar consulta SIN parámetros (todo embebido en la consulta)
+    const [products] = await pool.execute(query);
+
+    // Consulta de conteo simple
     let countQuery = `
       SELECT COUNT(*) as total
       FROM productos p
@@ -87,53 +96,92 @@ router.get('/', async (req, res) => {
       WHERE p.activo = 1 AND c.activo = 1
     `;
 
-    const countParams = [];
-    if (category && category !== 'all') {
-      countQuery += ` AND c.nombre = ?`;
-      countParams.push(category);
+    // Aplicar los mismos filtros para el conteo
+    if (category && category !== 'all' && typeof category === 'string' && category.trim().length > 0) {
+      const safeCategoryName = category.replace(/[^a-zA-Z0-9_]/g, '');
+      countQuery += ` AND c.nombre = '${safeCategoryName}'`;
     }
 
-    if (search) {
-      countQuery += ` AND (p.nombre LIKE ? OR p.descripcion LIKE ? OR p.marca LIKE ?)`;
-      const searchTerm = `%${search}%`;
-      countParams.push(searchTerm, searchTerm, searchTerm);
+    if (search && typeof search === 'string' && search.trim().length > 0) {
+      const safeSearchTerm = search.replace(/['"\\]/g, '');
+      countQuery += ` AND (p.nombre LIKE '%${safeSearchTerm}%' OR p.descripcion LIKE '%${safeSearchTerm}%' OR p.marca LIKE '%${safeSearchTerm}%')`;
     }
 
-    if (minPrice) {
-      countQuery += ` AND p.precio >= ?`;
-      countParams.push(parseFloat(minPrice));
+    if (minPrice && !isNaN(parseFloat(minPrice)) && parseFloat(minPrice) > 0) {
+      countQuery += ` AND p.precio >= ${parseFloat(minPrice)}`;
     }
 
-    if (maxPrice) {
-      countQuery += ` AND p.precio <= ?`;
-      countParams.push(parseFloat(maxPrice));
+    if (maxPrice && !isNaN(parseFloat(maxPrice)) && parseFloat(maxPrice) > 0) {
+      countQuery += ` AND p.precio <= ${parseFloat(maxPrice)}`;
     }
 
     if (featured === 'true') {
       countQuery += ` AND p.destacado = 1`;
     }
 
-    const [countResult] = await pool.execute(countQuery, countParams);
+    const [countResult] = await pool.execute(countQuery);
     const total = countResult[0].total;
+
+    console.log('✅ Query successful, products found:', products.length);
 
     res.json({
       success: true,
       data: products,
       pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
+        currentPage: pageNum,
+        totalPages: Math.ceil(total / limitNum),
         totalProducts: total,
         hasNext: offset + products.length < total,
-        hasPrev: parseInt(page) > 1
+        hasPrev: pageNum > 1
       }
     });
 
   } catch (error) {
-    console.error('Error obteniendo productos:', error);
+    console.error('❌ Error obteniendo productos:', error);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error code:', error.code);
+    
     res.status(500).json({
       success: false,
       error: 'Error obteniendo productos',
-      message: error.message
+      message: error.message,
+      code: error.code
+    });
+  }
+});
+
+// GET /api/products/simple - Mantener para pruebas
+router.get('/simple', async (req, res) => {
+  try {
+    console.log('🧪 Testing simple products endpoint...');
+    
+    const [products] = await pool.execute(`
+      SELECT 
+        p.id,
+        p.nombre,
+        p.precio,
+        p.stock,
+        c.nombre as categoria
+      FROM productos p
+      JOIN categorias c ON p.categoria_id = c.id
+      WHERE p.activo = 1
+      LIMIT 5
+    `);
+    
+    console.log('✅ Simple query successful, products found:', products.length);
+    
+    res.json({
+      success: true,
+      data: products,
+      message: 'Simple endpoint working'
+    });
+    
+  } catch (error) {
+    console.error('❌ Simple endpoint error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
     });
   }
 });
@@ -143,6 +191,17 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Validar que id sea un número
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({
+        success: false,
+        error: 'ID de producto inválido'
+      });
+    }
+
+    const productId = parseInt(id);
+    
+    // Usar query directa sin parámetros para evitar el error
     const [products] = await pool.execute(`
       SELECT 
         p.id,
@@ -166,8 +225,8 @@ router.get('/:id', async (req, res) => {
         c.id as categoria_id
       FROM productos p
       JOIN categorias c ON p.categoria_id = c.id
-      WHERE p.id = ? AND p.activo = 1
-    `, [id]);
+      WHERE p.id = ${productId} AND p.activo = 1
+    `);
 
     if (products.length === 0) {
       return res.status(404).json({
@@ -197,6 +256,17 @@ router.get('/category/:categoryName', async (req, res) => {
     const { categoryName } = req.params;
     const { limit = 12 } = req.query;
 
+    // Validar parámetros
+    if (!categoryName || typeof categoryName !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Nombre de categoría inválido'
+      });
+    }
+
+    const safeCategoryName = categoryName.replace(/[^a-zA-Z0-9_]/g, '');
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 12));
+
     const [products] = await pool.execute(`
       SELECT 
         p.id,
@@ -213,10 +283,10 @@ router.get('/category/:categoryName', async (req, res) => {
         c.nombre as categoria_nombre
       FROM productos p
       JOIN categorias c ON p.categoria_id = c.id
-      WHERE c.nombre = ? AND p.activo = 1 AND c.activo = 1
+      WHERE c.nombre = '${safeCategoryName}' AND p.activo = 1 AND c.activo = 1
       ORDER BY p.destacado DESC, p.calificacion_promedio DESC
-      LIMIT ?
-    `, [categoryName, parseInt(limit)]);
+      LIMIT ${limitNum}
+    `);
 
     res.json({
       success: true,
@@ -240,6 +310,17 @@ router.get('/search/:term', async (req, res) => {
     const { term } = req.params;
     const { limit = 20 } = req.query;
 
+    // Validar parámetros
+    if (!term || typeof term !== 'string' || term.trim().length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'Término de búsqueda debe tener al menos 2 caracteres'
+      });
+    }
+
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 20));
+    const safeSearchTerm = term.replace(/['"\\]/g, '').trim();
+
     const [products] = await pool.execute(`
       SELECT 
         p.id,
@@ -256,14 +337,14 @@ router.get('/search/:term', async (req, res) => {
       FROM productos p
       JOIN categorias c ON p.categoria_id = c.id
       WHERE (
-        p.nombre LIKE ?
-        OR p.descripcion LIKE ?
-        OR p.marca LIKE ?
+        p.nombre LIKE '%${safeSearchTerm}%'
+        OR p.descripcion LIKE '%${safeSearchTerm}%'
+        OR p.marca LIKE '%${safeSearchTerm}%'
       )
       AND p.activo = 1 AND c.activo = 1
       ORDER BY p.calificacion_promedio DESC
-      LIMIT ?
-    `, [`%${term}%`, `%${term}%`, `%${term}%`, parseInt(limit)]);
+      LIMIT ${limitNum}
+    `);
 
     res.json({
       success: true,
