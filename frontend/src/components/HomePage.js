@@ -59,7 +59,7 @@ const HomePage = ({
         {loadingFeatured ? (
           <div className="flex justify-center items-center py-12">
             <Loader className="animate-spin h-8 w-8 text-orange-600" />
-            <span className="ml-2 text-slate-600">Cargando productos destacados...</span>
+            <span className="ml-2 text-slate-600">Cargando productos los destacados...</span>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
