@@ -216,7 +216,7 @@ router.get('/products', async (req, res) => {
 });
 
 // POST /api/admin/products - Crear nuevo producto
-router.post('/products', async (req, res) => {
+router.post('/products', verifyToken, verifyAdmin, async (req, res) => {
   try {
     const {
       nombre,
@@ -231,8 +231,11 @@ router.post('/products', async (req, res) => {
       peso,
       dimensiones,
       garantia_meses = 0,
-      destacado = false
+      destacado = false,
+      imagen_principal = null // ← AGREGAR ESTE CAMPO
     } = req.body;
+
+    console.log('🆕 Creando nuevo producto con imagen:', imagen_principal);
 
     // Validaciones
     if (!nombre || !precio || !categoria_id) {
@@ -261,18 +264,20 @@ router.post('/products', async (req, res) => {
       });
     }
 
-    // Crear producto
+    // Crear producto CON imagen_principal
     const [result] = await pool.execute(`
       INSERT INTO productos (
         nombre, descripcion, precio, precio_oferta, categoria_id, 
         stock, stock_minimo, marca, modelo, peso, dimensiones, 
-        garantia_meses, destacado
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        garantia_meses, destacado, imagen_principal
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       nombre, descripcion, precio, precio_oferta, categoria_id,
       stock, stock_minimo, marca, modelo, peso, dimensiones,
-      garantia_meses, destacado
+      garantia_meses, destacado, imagen_principal
     ]);
+
+    console.log('✅ Producto creado con ID:', result.insertId, 'e imagen:', imagen_principal);
 
     res.status(201).json({
       success: true,
@@ -280,12 +285,13 @@ router.post('/products', async (req, res) => {
         id: result.insertId,
         nombre,
         precio,
+        imagen_principal,
         message: 'Producto creado exitosamente'
       }
     });
 
   } catch (error) {
-    console.error('Error creando producto:', error);
+    console.error('❌ Error creando producto:', error);
     res.status(500).json({
       success: false,
       error: 'Error creando producto',
@@ -295,7 +301,7 @@ router.post('/products', async (req, res) => {
 });
 
 // PUT /api/admin/products/:id - Actualizar producto
-router.put('/products/:id', async (req, res) => {
+router.put('/products/:id', verifyToken, verifyAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const productData = req.body;
@@ -315,7 +321,7 @@ router.put('/products/:id', async (req, res) => {
       });
     }
 
-    // Mapeo de campos y sus tipos
+    // Mapeo de campos y sus tipos (INCLUYENDO imagen_principal)
     const fieldMapping = {
       nombre: { type: 'string' },
       descripcion: { type: 'string' },
@@ -330,7 +336,8 @@ router.put('/products/:id', async (req, res) => {
       dimensiones: { type: 'string', nullable: true },
       garantia_meses: { type: 'int' },
       destacado: { type: 'boolean' },
-      activo: { type: 'boolean' }
+      activo: { type: 'boolean' },
+      imagen_principal: { type: 'string', nullable: true } // ← CAMPO AGREGADO
     };
 
     // Construir la actualización dinámicamente
@@ -399,10 +406,20 @@ router.put('/products/:id', async (req, res) => {
       });
     }
 
+    // ==========================================
+    // VERIFICAR QUE LA IMAGEN SE GUARDÓ CORRECTAMENTE
+    // ==========================================
+    const [updatedProduct] = await pool.execute(`
+      SELECT id, nombre, imagen_principal FROM productos WHERE id = ?
+    `, [id]);
+
+    console.log('✅ Producto actualizado:', updatedProduct[0]);
+
     res.json({
       success: true,
       data: {
         id: parseInt(id),
+        imagen_principal: updatedProduct[0].imagen_principal,
         message: 'Producto actualizado exitosamente'
       }
     });

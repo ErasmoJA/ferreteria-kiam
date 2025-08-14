@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 
 // Configurar variables de entorno
 dotenv.config();
@@ -16,41 +17,54 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ==========================================
+// SERVIR ARCHIVOS ESTÁTICOS (IMÁGENES)
+// ==========================================
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Middleware para logging
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
   next();
 });
 
-// Importar rutas (una por una para evitar errores)
+// Importar rutas
 const productRoutes = require('./routes/products');
 const categoryRoutes = require('./routes/categories');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
+const uploadRoutes = require('./routes/upload'); // ← NUEVA RUTA
 
 // Usar rutas
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/upload', uploadRoutes); // ← NUEVA RUTA
 
 // Ruta de prueba básica
 app.get('/api/test', (req, res) => {
   res.json({ 
     message: 'API de Ferretería funcionando correctamente!',
     timestamp: new Date().toISOString(),
-    status: 'OK'
+    status: 'OK',
+    features: {
+      uploads: true,
+      static_files: true
+    }
   });
 });
 
 // Ruta por defecto
 app.get('/', (req, res) => {
   res.json({ 
-    message: 'Bienvenido a la API de Ferretería El Martillo',
-    version: '1.0.0',
+    message: 'Bienvenido a la API de Ferretería Kiam',
+    version: '3.0.0',
     status: 'Servidor funcionando',
     endpoints: {
-      test: '/api/test'
+      test: '/api/test',
+      uploads: '/api/upload/product-image',
+      static_files: '/uploads'
     }
   });
 });
@@ -103,7 +117,9 @@ app.use('*', (req, res) => {
     availableEndpoints: [
       'GET /',
       'GET /api/test',
-      'GET /api/db-test'
+      'GET /api/db-test',
+      'POST /api/upload/product-image',
+      'GET /uploads/products/:filename'
     ]
   });
 });
@@ -115,4 +131,5 @@ app.listen(PORT, () => {
   console.log(`📁 Documentación de API en http://localhost:${PORT}/`);
   console.log(`🧪 Prueba la API en http://localhost:${PORT}/api/test`);
   console.log(`🗄️  Prueba la DB en http://localhost:${PORT}/api/db-test`);
+  console.log(`📸 Uploads habilitados en http://localhost:${PORT}/uploads`);
 });
