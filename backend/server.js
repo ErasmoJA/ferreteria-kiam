@@ -13,8 +13,8 @@ const PORT = process.env.PORT || 5000;
 app.use(cors({
   origin: [
     'http://localhost:3000',
-    'http://192.168.1.100:3000',  // IP de la PC trasera
-    'http://192.168.1.101:3000'   // IP de la PC mostrador
+    'http://192.168.100.5:3000',    // Tu IP correcta
+    'http://127.0.0.1:3000'
   ],
   credentials: true
 }));
@@ -129,14 +129,13 @@ app.use('*', (req, res) => {
 });
 
 // Iniciar servidor
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor ejecutándose en http://localhost:${PORT}`);
-  console.log(`📊 Frontend en http://localhost:3000`);
-  console.log(`📁 Documentación de API en http://localhost:${PORT}/`);
-  console.log(`🧪 Prueba la API en http://localhost:${PORT}/api/test`);
-  console.log(`🗄️  Prueba la DB en http://localhost:${PORT}/api/db-test`);
-  console.log(`📸 Uploads habilitados en http://localhost:${PORT}/uploads`);
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor ejecutándose en http://0.0.0.0:${PORT}`);
   console.log(`📊 Acceso local: http://localhost:${PORT}`);
-  console.log(`🌐 Acceso red: http://192.168.1.100:${PORT}`);
+  console.log(`🌐 Acceso red: http://192.168.100.5:${PORT}`);
+  console.log(`📁 API Docs: http://192.168.100.5:${PORT}/`);
+  console.log(`🧪 Test API: http://192.168.100.5:${PORT}/api/test`);
+  console.log(`🗄️  Test DB: http://192.168.100.5:${PORT}/api/db-test`);
+  console.log(`📸 Uploads: http://192.168.100.5:${PORT}/uploads`);
+  console.log(`🏪 POS remoto: http://192.168.100.5:3000?mode=pos`);
 });

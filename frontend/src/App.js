@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag } from 'lucide-react'; // ← AGREGAR ESTE IMPORT
+import { ShoppingBag } from 'lucide-react';
 import './App.css';
 
 // Importar componentes principales
@@ -9,7 +9,8 @@ import ProductsPage from './components/ProductsPage';
 import AuthModal from './components/AuthModal';
 import Footer from './components/Footer';
 import AdminPanel from './components/AdminPanel';
-import ShoppingCart from './components/ShoppingCart'; // ← NUEVO
+import ShoppingCart from './components/ShoppingCart';
+import POSInterface from './components/POSInterface';
 
 // Importar hooks personalizados
 import { useAuth } from './hooks/useAuth';
@@ -17,20 +18,17 @@ import useProducts from './hooks/useProducts';
 
 const FerreteriaApp = () => {
   
-  const urlParams = new URLSearchParams(window.location.search);
-  const isPOSMode = urlParams.get('mode') === 'pos';
-
-  if (isPOSMode) {
-    return <POSInterface />;
-  }
-
+  // ==========================================
+  // 🔥 TODOS LOS HOOKS DEBEN IR PRIMERO (ANTES DE CUALQUIER RETURN)
+  // ==========================================
+  
   // Estados de navegación
   const [currentPage, setCurrentPage] = useState('home');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [showCart, setShowCart] = useState(false); // ← NUEVO
+  const [showCart, setShowCart] = useState(false);
 
-  // Estados del carrito - MEJORADOS
+  // Estados del carrito
   const [cart, setCart] = useState([]);
 
   // Hook de autenticación
@@ -59,7 +57,6 @@ const FerreteriaApp = () => {
     loadProducts,
     loadFeaturedProducts,
     clearFilters,
-    // Nuevas propiedades
     totalProducts,
     showingCount,
     hasMoreProducts,
@@ -67,7 +64,7 @@ const FerreteriaApp = () => {
   } = useProducts();
 
   // ==========================================
-  // PERSISTENCIA DEL CARRITO
+  // EFFECTS (TAMBIÉN DEBEN IR ANTES DE RETURNS)
   // ==========================================
 
   // Cargar carrito desde localStorage al iniciar
@@ -100,7 +97,14 @@ const FerreteriaApp = () => {
   }, [cart, user]);
 
   // ==========================================
-  // FUNCIONES DEL CARRITO - MEJORADAS
+  // DETECTAR MODO POS (DESPUÉS DE TODOS LOS HOOKS)
+  // ==========================================
+  
+  const urlParams = new URLSearchParams(window.location.search);
+  const isPOSMode = urlParams.get('mode') === 'pos';
+
+  // ==========================================
+  // FUNCIONES DEL CARRITO
   // ==========================================
 
   const addToCart = (product) => {
@@ -130,8 +134,6 @@ const FerreteriaApp = () => {
       setCart([...cart, { ...product, quantity: 1 }]);
     }
 
-    // Mostrar feedback visual
-    // Opcional: puedes agregar una animación o toast notification aquí
     console.log(`✅ ${product.nombre} agregado al carrito`);
   };
 
@@ -173,7 +175,7 @@ const FerreteriaApp = () => {
   };
 
   // ==========================================
-  // VERIFICACIONES Y FUNCIONES AUXILIARES
+  // FUNCIONES AUXILIARES
   // ==========================================
 
   // Verificar si el usuario es administrador
@@ -201,8 +203,13 @@ const FerreteriaApp = () => {
   };
 
   // ==========================================
-  // RENDERIZADO
+  // RENDERIZADO CONDICIONAL (DESPUÉS DE TODOS LOS HOOKS)
   // ==========================================
+
+  // 🔥 MODO POS (AHORA AL FINAL, DESPUÉS DE TODOS LOS HOOKS)
+  if (isPOSMode) {
+    return <POSInterface />;
+  }
 
   // Loading state global
   if (authLoading) {
@@ -239,7 +246,7 @@ const FerreteriaApp = () => {
         onOpenAuth={() => setIsAuthModalOpen(true)}
         cartTotal={getCartTotal()}
         cartItemCount={getCartItemCount()}
-        onOpenCart={() => setShowCart(true)} // ← NUEVO
+        onOpenCart={() => setShowCart(true)}
         isAdmin={isAdmin()}
         onAdminToggle={handleAdminToggle}
       />
@@ -273,7 +280,6 @@ const FerreteriaApp = () => {
             products={products}
             addToCart={addToCart}
             loadProducts={loadProducts}
-            // Nuevas props para paginación y resultados
             totalProducts={totalProducts}
             showingCount={showingCount}
             hasMoreProducts={hasMoreProducts}
@@ -285,10 +291,6 @@ const FerreteriaApp = () => {
       {/* Footer */}
       <Footer totalProducts={products.length} />
 
-      {/* ========================================== */}
-      {/* MODALES Y COMPONENTES FLOTANTES */}
-      {/* ========================================== */}
-
       {/* Modal de Autenticación */}
       <AuthModal 
         isOpen={isAuthModalOpen}
@@ -296,7 +298,7 @@ const FerreteriaApp = () => {
         onLogin={handleLoginSuccess}
       />
 
-      {/* Carrito de Compras - NUEVO */}
+      {/* Carrito de Compras */}
       <ShoppingCart 
         isOpen={showCart}
         onClose={() => setShowCart(false)}
@@ -306,7 +308,7 @@ const FerreteriaApp = () => {
         onClearCart={clearCart}
       />
 
-      {/* Indicador de carrito flotante (opcional) */}
+      {/* Indicador de carrito flotante */}
       {cart.length > 0 && !showCart && (
         <button
           onClick={() => setShowCart(true)}

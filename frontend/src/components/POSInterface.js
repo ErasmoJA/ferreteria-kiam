@@ -16,27 +16,55 @@ const POSInterface = () => {
   }, []);
 
   const loadProducts = async () => {
+  try {
+    setLoading(true);
+    
+    // Detectar si estamos en localhost o en la red
+    const currentHost = window.location.hostname;
+    let apiURL;
+    
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      apiURL = 'http://localhost:5000/api/products?limit=100';
+    } else {
+      apiURL = 'http://192.168.100.5:5000/api/products?limit=100';
+    }
+    
+    console.log('🔍 Conectando a:', apiURL);
+    const response = await fetch(apiURL);
+    const data = await response.json();
+    
+    if (data.success) {
+      setProducts(data.data);
+      console.log('✅ Productos cargados exitosamente');
+    }
+  } catch (error) {
+    console.error('❌ Error cargando productos:', error);
+    
+    // Fallback: intentar con localhost si falla la IP de red
     try {
-      setLoading(true);
+      console.log('🔄 Intentando fallback con localhost...');
       const response = await fetch('http://localhost:5000/api/products?limit=100');
       const data = await response.json();
       
       if (data.success) {
         setProducts(data.data);
+        console.log('✅ Productos cargados con fallback');
       }
-    } catch (error) {
-      console.error('Error cargando productos:', error);
-      // Productos de ejemplo si no hay conexión
+    } catch (fallbackError) {
+      console.error('❌ Error también en fallback:', fallbackError);
+      // Productos de ejemplo como último recurso
       setProducts([
         { id: 1, nombre: 'Martillo 16oz', precio: 250, stock: 15, codigo: '123456789' },
         { id: 2, nombre: 'Destornillador Phillips', precio: 85, stock: 32, codigo: '987654321' },
         { id: 3, nombre: 'Pintura Blanca 4L', precio: 380, stock: 25, codigo: '456789123' },
         { id: 4, nombre: 'Taladro 600W', precio: 1850, stock: 8, codigo: '789123456' }
       ]);
-    } finally {
-      setLoading(false);
+      console.log('⚠️ Usando productos de ejemplo (modo offline)');
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+    };
 
   const addToCart = (product) => {
     const existingItem = cart.find(item => item.id === product.id);
