@@ -16,6 +16,14 @@ import { useAuth } from './hooks/useAuth';
 import useProducts from './hooks/useProducts';
 
 const FerreteriaApp = () => {
+  
+  const urlParams = new URLSearchParams(window.location.search);
+  const isPOSMode = urlParams.get('mode') === 'pos';
+
+  if (isPOSMode) {
+    return <POSInterface />;
+  }
+
   // Estados de navegación
   const [currentPage, setCurrentPage] = useState('home');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);

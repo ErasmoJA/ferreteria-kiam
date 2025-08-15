@@ -11,7 +11,11 @@ const PORT = process.env.PORT || 5000;
 
 // Middlewares
 app.use(cors({
-  origin: 'http://localhost:3000', // URL de tu React
+  origin: [
+    'http://localhost:3000',
+    'http://192.168.1.100:3000',  // IP de la PC trasera
+    'http://192.168.1.101:3000'   // IP de la PC mostrador
+  ],
   credentials: true
 }));
 app.use(express.json());
@@ -132,4 +136,7 @@ app.listen(PORT, () => {
   console.log(`🧪 Prueba la API en http://localhost:${PORT}/api/test`);
   console.log(`🗄️  Prueba la DB en http://localhost:${PORT}/api/db-test`);
   console.log(`📸 Uploads habilitados en http://localhost:${PORT}/uploads`);
+  console.log(`🚀 Servidor ejecutándose en http://0.0.0.0:${PORT}`);
+  console.log(`📊 Acceso local: http://localhost:${PORT}`);
+  console.log(`🌐 Acceso red: http://192.168.1.100:${PORT}`);
 });
